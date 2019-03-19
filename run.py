@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import astropy.units as u
 from astropy.constants import R_sun, R_earth, M_sun
 from batman import TransitParams, TransitModel
@@ -19,7 +18,7 @@ rp_rs = float(R_earth/R_sun)
 b = 0 
 
 period = 5 * u.day
-a_rstar = float(keplers_law(5)/R_sun)
+a_rs = float(keplers_law(5)/R_sun)
 
 params = TransitParams()
 params.per = period.to(u.day).value
@@ -36,7 +35,7 @@ times = np.linspace(-2, 2, 1000)
 
 model = TransitModel(params, times).light_curve(params)
 
-n_trials = 25
+n_trials = 2# 25
 t0_chains = []
 
 for trial in range(n_trials):
@@ -44,9 +43,9 @@ for trial in range(n_trials):
     fluxes = model + f
 
     yerr = np.std(f)
-    plt.figure()
-    plt.errorbar(times, fluxes, yerr, marker='.', ecolor='gray')
-    plt.show()
+    #plt.figure()
+    #plt.errorbar(times, fluxes, yerr, marker='.', ecolor='gray')
+    #plt.show()
 
     class MeanModel(modeling.Model): 
         parameter_names = ('t0', )
@@ -87,11 +86,11 @@ for trial in range(n_trials):
         sampler.reset()
         sampler.run_mcmc(p0, 5000);
 
-    corner(sampler.flatchain, labels=gp.get_parameter_names());
+    #corner(sampler.flatchain, labels=gp.get_parameter_names());
 
     t0_chains.append(sampler.flatchain[:, -1])
 
 #std = np.median([s.std() for s in t0_chains])
 #error = np.std([s.std() for s in t0_chains])
 
-np.savetxt('~/git/shocksgo-hyak/results/{0}_{1}_{2:04d}.txt'.format(period.to(u.day).value, a_rs, np.random.randint(0, 2048)), [s.std() for s in t0_chains])
+np.savetxt('/usr/lusers/bmmorris/git/shocksgo-hyak/results/{0:.1f}_{2:04d}.txt'.format(period.to(u.day).value, np.random.randint(0, 1e6)), [s.std() for s in t0_chains])
