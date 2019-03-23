@@ -2,7 +2,7 @@ import numpy as np
 import astropy.units as u
 from astropy.constants import R_sun, R_earth, M_sun
 from batman import TransitParams, TransitModel
-
+import sys
 import emcee
 from copy import deepcopy
 from celerite import terms, GP, modeling
@@ -17,8 +17,8 @@ def keplers_law(period):
 rp_rs = float(R_earth/R_sun)
 b = 0 
 
-period = 5 * u.day
-a_rs = float(keplers_law(5)/R_sun)
+period = float(sys.argv[1]) * u.day #5 * u.day
+a_rs = float(keplers_law(period.to(u.day).value)/R_sun)
 
 params = TransitParams()
 params.per = period.to(u.day).value
@@ -35,7 +35,7 @@ times = np.linspace(-2, 2, 1000)
 
 model = TransitModel(params, times).light_curve(params)
 
-n_trials = 2# 25
+n_trials = 50
 t0_chains = []
 
 for trial in range(n_trials):
@@ -57,23 +57,30 @@ for trial in range(n_trials):
 
 
     # Set up the GP model
-    kernel = terms.SHOTerm(log_S0=-25, log_omega0=5, log_Q=np.log(1/np.sqrt(2)), 
-                           bounds=dict(log_S0=(-35, -20), log_omega0=(0, 10)))
-    kernel.freeze_parameter('log_Q')
-    mean_model = MeanModel(t0=0, bounds=dict(t0=(-0.1, 0.1)))
-    gp = GP(kernel, mean=mean_model, fit_mean=True)
-    gp.compute(times, yerr)
+#    kernel = terms.SHOTerm(log_S0=-25, log_omega0=5, log_Q=np.log(1/np.sqrt(2)), 
+#                           bounds=dict(log_S0=(-35, -20), log_omega0=(0, 10)))
+#    kernel.freeze_parameter('log_Q')
+#    mean_model = MeanModel(t0=0, bounds=dict(t0=(-0.1, 0.1)))
+#    gp = GP(kernel, mean=mean_model, fit_mean=True)
+#    gp.compute(times, yerr)
 
-    def log_probability(params):
-        gp.set_parameter_vector(params)
-        lp = gp.log_prior()
-        if not np.isfinite(lp):
-            return -np.inf
-        return gp.log_likelihood(fluxes) + lp
+ #   def log_probability(params):
+ #       gp.set_parameter_vector(params)
+ #       lp = gp.log_prior()
+ #       if not np.isfinite(lp):
+ #           return -np.inf
+ #       return gp.log_likelihood(fluxes) + lp
 
 
-    initial = np.array([-28, 6.5, 0])
-    ndim, nwalkers = len(initial), len(initial) * 2
+#    initial = np.array([-28, 6.5, 0])
+
+    def log_probability(params): 
+         model = MeanModel(t0=params[0]).get_value(times)
+         return -0.5 * np.sum((model - fluxes)**2 / yerr**2)
+
+
+    initial = np.array([0])
+    ndim, nwalkers = len(initial), len(initial) * 10
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -93,4 +100,4 @@ for trial in range(n_trials):
 #std = np.median([s.std() for s in t0_chains])
 #error = np.std([s.std() for s in t0_chains])
 
-np.savetxt('/usr/lusers/bmmorris/git/shocksgo-hyak/results/{0:.1f}_{2:04d}.txt'.format(period.to(u.day).value, np.random.randint(0, 1e6)), [s.std() for s in t0_chains])
+np.savetxt('/usr/lusers/bmmorris/git/shocksgo-hyak/results-nogp/{0:.1f}_{1:04d}.txt'.format(period.to(u.day).value, np.random.randint(0, 1e6)), [s.std() for s in t0_chains])
